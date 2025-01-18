@@ -14,16 +14,16 @@ class world:
         self.square_size = square_size
     def setup(self):
         self.fig, ax = plt.subplots()
-        ax.set_xlim([-self.xlim, self.xlim])
-        ax.set_ylim([-self.ylim, self.ylim])
+        ax.set_xlim([0, self.xlim])
+        ax.set_ylim([0, self.ylim])
         ax.set_aspect('equal')
         return ax
     
     def shape(self, ax):
-        x_start = randrange(self.xlim*2)-self.xlim
+        x_start = randrange(self.xlim)
         print(x_start)
         
-        y_start = randrange(self.ylim*2)-self.ylim
+        y_start = randrange(self.ylim)
         print(y_start)
         rect = matplotlib.patches.Rectangle((x_start, y_start), self.square_size, self.square_size, 
                                   edgecolor='black', facecolor='blue', alpha=0.5)        
@@ -31,8 +31,8 @@ class world:
 
     def make_grid(self):
         ax = self.setup()
-        num_shapes = int(self.coverage * ((2 * self.xlim) * (2 * self.ylim)) / (self.square_size ** 2))
-
+        # num_shapes = int(self.coverage * ((self.xlim) * (self.ylim)) / (self.square_size ** 2))
+        num_shapes = 1
         for _ in range(num_shapes):
             self.shape(ax)
         ax.grid(True)
