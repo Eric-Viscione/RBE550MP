@@ -25,10 +25,17 @@ class world:
         
         y_start = randrange(self.ylim)
         print(y_start)
-        rect = matplotlib.patches.Rectangle((x_start, y_start), self.square_size, self.square_size, 
-                                  edgecolor='black', facecolor='blue', alpha=0.5)        
+        rect = matplotlib.patches.Rectangle((x_start, y_start), self.square_size, self.square_size, #generate the first rectangle
+                                  edgecolor='black', facecolor='blue', alpha=0.5)
         ax.add_patch(rect)
+        for i in range(3):
 
+            
+
+        #randomly increment in one direction frrom the previous rectangle, adding it to the graph. when you get to 3 new rectangles stop       
+
+        
+        
     def make_grid(self):
         ax = self.setup()
         # num_shapes = int(self.coverage * ((self.xlim) * (self.ylim)) / (self.square_size ** 2))
