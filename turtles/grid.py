@@ -24,10 +24,16 @@ class agent:
     def __init__(self, color):
         self.color = color
         self.current_square = None
+    def move_squares(self, new_square):
+        self.current_square = new_square
         
 
 
-
+class hero(agent):
+    def __init__(self, color):
+        super().__init__(color)
+    # def navigate(self, )
+    
 
 
 class generate_graph:
@@ -41,7 +47,7 @@ class generate_graph:
         self.obstacle_size = obstacle_size
         self.prev_dir = 0
         self.array = np.zeros((self.xlim, self.ylim), dtype=int) 
-        
+        self.corner_array = np.zeros((self.xlim+1, self.ylim+1), dtype=int)
     def make_grid(self):
         """Generates the array and size of the obstacle course, plots the course
         """
@@ -98,6 +104,15 @@ class generate_graph:
     
             self.prev_dir = direction.inverse
     def generate_corner_graph(self):
+        for i in range(self.xlim):
+            for j in range(self.ylim):
+                if self.array[i][j] == 1:
+                    print('Corner Found')
+                    self.corner_array[i][j] = 1
+                    self.corner_array[i+1][j] = 1
+                    self.corner_array[i][j+1] = 1
+                    self.corner_array[i+1][j+1] = 1
+        return self.corner_array
         
 class world:
     def __init__(self, xlim, ylim, coverage, square_size, graph_generator):
@@ -112,6 +127,7 @@ class world:
         self.prev_dir = 0
         self.array = np.zeros((self.xlim, self.ylim), dtype=int)
         self.graph_generator = graph_generator
+
     def plot_setup(self, title):
         """Sets up the plot, adding its grid, title and limits
 
@@ -130,7 +146,7 @@ class world:
         ay.set_title(title)
         return ay
     
-    def visualize_grid(self, title):
+    def visualize_grid(self, title, corner_array):
         """Adds rectangles to the course visualization based on the array
            Also adds scatter points to each start point
 
@@ -143,20 +159,31 @@ class world:
                 if self.array[i][j] == 1:
                     rect = matplotlib.patches.Rectangle((i, j), self.square_size, self.square_size, 
                                   edgecolor='black', facecolor='blue', alpha=0.5)  ##to do seperate the graphing into a more portable class so I can generate the grid, pass that around and then plot;
-                    print(f'Rectangle starting at {i}, {j}')
+                    # print(f'Rectangle starting at {i}, {j}')
                     ay.add_patch(rect)
-        x_indices, y_indices = np.where(self.array == 1)
-        plt.scatter(x_indices+0.5, y_indices+0.5, s=25)
-        plt.show()
+        x_indices_starts, y_indices_starts = np.where(self.array == 1)
+        plt.scatter(x_indices_starts+0.5, y_indices_starts+0.5, s=25)
+        
+        
+        return plt
     def make_starting_world(self):
         """Generates the array and size of the obstacle course, plots the course
         """
         self.array = self.graph_generator.make_grid()
+        corner_array = self.graph_generator.generate_corner_graph()
+        print(corner_array)
         title = f"{self.xlim} X {self.ylim} Grid with {self.coverage*100}% Covereage"
-        self.visualize_grid(title)
+        plt = self.visualize_grid(title, corner_array)
+        x_corners, y_corners = np.where(corner_array == 1)
+        plt.scatter(x_corners, y_corners, s=25)
         input()
+        return plt
 
-
+class run_game:
+    def __init__(self, ):
+        pass
+    def animate_motion(self):
+        ##update the location of the agents, and keep using the static world(for now)
 
         
 
