@@ -23,7 +23,7 @@ mapping = [
 class agent:
     def __init__(self, color):
         self.color = color
-        self.current_square = None
+        self.current_square = (0,0)
     def move_squares(self, new_square):
         self.current_square = new_square
         
@@ -31,8 +31,16 @@ class agent:
 
 class hero(agent):
     def __init__(self, color):
+        self.path = []
         super().__init__(color)
-    # def navigate(self, )
+    def find_path_simple(self, goal):
+        current_pos_x = self.current_square[0]
+        current_pos_y = self.current_square[1]
+        goal_x = goal[0]
+        goal_y = goal[1]
+        distance_to_goal =(goal_x - current_pos_x, goal_y-current_pos_y)
+        
+
     
 
 
@@ -180,10 +188,11 @@ class world:
         return plt
 
 class run_game:
-    def __init__(self, ):
+    def __init__(self,world, hero ):
         pass
     def animate_motion(self):
         ##update the location of the agents, and keep using the static world(for now)
+        
 
         
 
@@ -196,6 +205,7 @@ def main():
     parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
     
     args = parser.parse_args()
+    hero = 
     graph_generator = generate_graph(args.x_size, args.y_size, args.coverage, args.square_size)
     wrld = world(args.x_size,args.y_size, args.coverage, args.square_size, graph_generator)
     wrld.make_starting_world()
