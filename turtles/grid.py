@@ -6,7 +6,8 @@ import random
 from dataclasses import dataclass
 import argparse
 import matplotlib.animation as animation
-
+from itertools import combinations
+import cv2
 @dataclass
 class dirMapping: #maps a random(0-3) to x and y directions +/-1 and also stores the oppisite value we dont want to generate
     value: int
@@ -34,11 +35,8 @@ class hero(agent):
         self.path = []
         super().__init__(color)
     def find_path_simple(self, goal):
-        current_pos_x = self.current_square[0]
-        current_pos_y = self.current_square[1]
-        goal_x = goal[0]
-        goal_y = goal[1]
-        distance_to_goal =(goal_x - current_pos_x, goal_y-current_pos_y)
+        pass
+
         
 
     
@@ -115,12 +113,33 @@ class generate_graph:
         for i in range(self.xlim):
             for j in range(self.ylim):
                 if self.array[i][j] == 1:
-                    print('Corner Found')
+                    # print('Corner Found')
                     self.corner_array[i][j] = 1
                     self.corner_array[i+1][j] = 1
                     self.corner_array[i][j+1] = 1
                     self.corner_array[i+1][j+1] = 1
         return self.corner_array
+    def generate_visibility_graph(self, start, goal):
+        #two verticies(u,v) are visible if the line segment connecting them does not intersect any obstacle
+        x_corner, y_corner = np.where(self.corner_array == 1)
+        
+        corner_array_uint8 = self.corner_array.astype(np.uint8)
+        obstacle_segments = cv2.findContours(corner_array_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        print(F"Obstacle Segments {obstacle_segments}")
+        
+        verticies = [start]
+        for i in range(len(x_corner)):
+            verticies.append([int(x_corner[i]), int(y_corner[i])]) 
+        verticies.append(goal)
+        for pair in combinations(verticies, 2):
+            
+            pass
+
+        print(verticies)
+        return verticies
+    
+
+
         
 class world:
     def __init__(self, xlim, ylim, coverage, square_size, graph_generator):
@@ -170,21 +189,24 @@ class world:
                     # print(f'Rectangle starting at {i}, {j}')
                     ay.add_patch(rect)
         x_indices_starts, y_indices_starts = np.where(self.array == 1)
-        plt.scatter(x_indices_starts+0.5, y_indices_starts+0.5, s=25)
-        
-        
+        plt.scatter(x_indices_starts+0.5, y_indices_starts+0.5, s=25, c='purple')
         return plt
-    def make_starting_world(self):
+    def make_starting_world(self, start, goal):
         """Generates the array and size of the obstacle course, plots the course
         """
         self.array = self.graph_generator.make_grid()
         corner_array = self.graph_generator.generate_corner_graph()
+        vertice_graph = self.graph_generator.generate_visibility_graph(start = [0,0], goal = [5,5])
         print(corner_array)
         title = f"{self.xlim} X {self.ylim} Grid with {self.coverage*100}% Covereage"
         plt = self.visualize_grid(title, corner_array)
         x_corners, y_corners = np.where(corner_array == 1)
-        plt.scatter(x_corners, y_corners, s=25)
-        input()
+        plt.scatter(x_corners, y_corners, s=25, c='blue')
+        plt.scatter(start[0], start[1], s=100, c='green')
+        plt.scatter(goal[0], goal[1], s=100, c='red')
+       
+        # plt.show()
+        
         return plt
 
 class run_game:
@@ -192,6 +214,7 @@ class run_game:
         pass
     def animate_motion(self):
         ##update the location of the agents, and keep using the static world(for now)
+        pass
         
 
         
@@ -199,16 +222,17 @@ class run_game:
 
 def main():
     parser = argparse.ArgumentParser(description ='Create a Grid World')
-    parser.add_argument('--x_size', type=int , default=100,  required=False ,help='The size of the grid in the X direction' )
-    parser.add_argument('--y_size', type=int , default=100,  required=False ,help='The size of the grid in the Y direction' )
+    parser.add_argument('--x_size', type=int , default=5,  required=False ,help='The size of the grid in the X direction' )
+    parser.add_argument('--y_size', type=int , default=5,  required=False ,help='The size of the grid in the Y direction' )
     parser.add_argument('--coverage', type=float , default=0.1,  required=False ,help='What percent of the grid will be covered with obstacles' )
     parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
     
     args = parser.parse_args()
-    hero = 
+    # hero = 
     graph_generator = generate_graph(args.x_size, args.y_size, args.coverage, args.square_size)
     wrld = world(args.x_size,args.y_size, args.coverage, args.square_size, graph_generator)
-    wrld.make_starting_world()
+    plt = wrld.make_starting_world(start = [0,0], goal = [5,5])
+    plt.show()
 
 
 if __name__ == "__main__":
