@@ -21,29 +21,12 @@ mapping = [
     dirMapping(3, 0, -1, 2)
 ]
 
-class agent:
-    def __init__(self, color):
-        self.color = color
-        self.current_square = (0,0)
-    def move_squares(self, new_square):
-        self.current_square = new_square
-        
-
-
-class hero(agent):
-    def __init__(self, color):
-        self.path = []
-        super().__init__(color)
-    def find_path_simple(self, goal):
-        pass
-
-        
 
     
 
 
 class generate_graph:
-    def __init__(self, xlim, ylim, coverage,square_size = 1 ,obstacle_size = 4):
+    def __init__(self, xlim, ylim, coverage,square_size = 1 ,obstacle_size = 2):
         self.coverage = coverage
         self.xlim = xlim
         self.ylim = ylim
@@ -58,11 +41,15 @@ class generate_graph:
         """Generates the array and size of the obstacle course, plots the course
         """
         num_shapes = int((self.coverage * ((self.xlim) * (self.ylim)) / (self.square_size ** 2))/4)+1
+        num_shapes = 2
         print(f"The number of shapes is {num_shapes}")
         for _ in range(num_shapes):
             self.create_shape()
-        print(self.array)
-        return self.array
+        # print(self.array)
+        self.generate_corner_graph()
+        print(self.corner_array)
+        
+        return self.array, self.find_obstacle_edges()
         # title = f"{self.xlim} X {self.ylim} Grid with {self.coverage*100}% Covereage"
         # self.visualize_grid(title)
         # input()
@@ -118,121 +105,75 @@ class generate_graph:
                     self.corner_array[i+1][j] = 1
                     self.corner_array[i][j+1] = 1
                     self.corner_array[i+1][j+1] = 1
+        
         return self.corner_array
-    def generate_visibility_graph(self, start, goal):
-        #two verticies(u,v) are visible if the line segment connecting them does not intersect any obstacle
-        x_corner, y_corner = np.where(self.corner_array == 1)
+    # def generate_visibility_graph(self, start, goal):
+    #     #two verticies(u,v) are visible if the line segment connecting them does not intersect any obstacle
+    #     g = []
+    #     x_corner, y_corner = np.where(self.corner_array == 1)
         
-        corner_array_uint8 = self.corner_array.astype(np.uint8)
-        obstacle_segments = cv2.findContours(corner_array_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        print(F"Obstacle Segments {obstacle_segments}")
-        
-        verticies = [start]
-        for i in range(len(x_corner)):
-            verticies.append([int(x_corner[i]), int(y_corner[i])]) 
-        verticies.append(goal)
-        for pair in combinations(verticies, 2):
+    #     edge_array= self.find_obstacle_edges()        
+    #     verticies = [start]
+    #     for i in range(len(x_corner)):
+    #         verticies.append([int(x_corner[i]), int(y_corner[i])]) 
+    #     verticies.append(goal)
+    #     # print(f"edge array {edge_array}")
+
+    #     for i, pair in enumerate(combinations(verticies, 2)):   #create  pairs of every vertice on the map
+    #         # print(f"pair {i} {pair}")
+    #         for i in range(len(edge_array)):   ##check for pairs that match the edges of the obstacle
+    #             if pair == edge_array[i]:
+    #                 g.append(pair)
             
-            pass
+                
 
-        print(verticies)
-        return verticies
+    #     # print(verticies)
+    #     return g
+    def find_obstacle_edges(self):
+        self.generate_corner_graph #make sure we actualyl find the corners first lmao
+        all_edges = []
+        corner_array_uint8 = self.corner_array.astype(np.uint8)
+        contours, hierarchy = cv2.findContours(corner_array_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for i, contour in enumerate(contours):
+            contour_edges = []  # Edges for the current contour
+            contour = contour[:, 0, :]  # Reshape to (x, y)
+            num_points = len(contour)
+
+            for j in range(num_points):
+                pt0 = tuple(contour[j])
+                pt1 = tuple(contour[(j + 1) % num_points])
+                contour_edges.append([tuple([int(pt0[0]), int(pt0[1])]), tuple([int(pt1[0]), int(pt1[1])])])
+            all_edges.append(contour_edges)
+        return all_edges
+
+    
+
     
 
 
         
-class world:
-    def __init__(self, xlim, ylim, coverage, square_size, graph_generator):
-        self.xlim = xlim
-        self.ylim = ylim
-        self.coverage = coverage
-        self.fig = None
-        self.square_size = square_size
-        self.x_start = 0
-        self.y_start = 0
-        self.obstacle_size = 4
-        self.prev_dir = 0
-        self.array = np.zeros((self.xlim, self.ylim), dtype=int)
-        self.graph_generator = graph_generator
 
-    def plot_setup(self, title):
-        """Sets up the plot, adding its grid, title and limits
 
-        Args:
-            title (string): Title of the plot
 
-        Returns:
-            ay: object of the figure that holds the formatting data
-        """
-        self.fig, ay = plt.subplots()
-        ay.grid(True)
-        ay.set_xlim([0, self.xlim])
-        ay.set_ylim([0, self.ylim])
-        ay.set_xticks(range(0, self.xlim + 1, 1))
-        ay.set_yticks(range(0, self.ylim + 1, 1))
-        ay.set_title(title)
-        return ay
-    
-    def visualize_grid(self, title, corner_array):
-        """Adds rectangles to the course visualization based on the array
-           Also adds scatter points to each start point
-
-        Args:
-            title (string): Title of the plot
-        """
-        ay = self.plot_setup(title)
-        for i in range(self.xlim):
-            for j in range(self.ylim):
-                if self.array[i][j] == 1:
-                    rect = matplotlib.patches.Rectangle((i, j), self.square_size, self.square_size, 
-                                  edgecolor='black', facecolor='blue', alpha=0.5)  ##to do seperate the graphing into a more portable class so I can generate the grid, pass that around and then plot;
-                    # print(f'Rectangle starting at {i}, {j}')
-                    ay.add_patch(rect)
-        x_indices_starts, y_indices_starts = np.where(self.array == 1)
-        plt.scatter(x_indices_starts+0.5, y_indices_starts+0.5, s=25, c='purple')
-        return plt
-    def make_starting_world(self, start, goal):
-        """Generates the array and size of the obstacle course, plots the course
-        """
-        self.array = self.graph_generator.make_grid()
-        corner_array = self.graph_generator.generate_corner_graph()
-        vertice_graph = self.graph_generator.generate_visibility_graph(start = [0,0], goal = [5,5])
-        print(corner_array)
-        title = f"{self.xlim} X {self.ylim} Grid with {self.coverage*100}% Covereage"
-        plt = self.visualize_grid(title, corner_array)
-        x_corners, y_corners = np.where(corner_array == 1)
-        plt.scatter(x_corners, y_corners, s=25, c='blue')
-        plt.scatter(start[0], start[1], s=100, c='green')
-        plt.scatter(goal[0], goal[1], s=100, c='red')
-       
-        # plt.show()
-        
-        return plt
-
-class run_game:
-    def __init__(self,world, hero ):
-        pass
-    def animate_motion(self):
-        ##update the location of the agents, and keep using the static world(for now)
-        pass
-        
 
         
 
 
 def main():
     parser = argparse.ArgumentParser(description ='Create a Grid World')
-    parser.add_argument('--x_size', type=int , default=5,  required=False ,help='The size of the grid in the X direction' )
-    parser.add_argument('--y_size', type=int , default=5,  required=False ,help='The size of the grid in the Y direction' )
+    parser.add_argument('--x_size', type=int , default=10,  required=False ,help='The size of the grid in the X direction' )
+    parser.add_argument('--y_size', type=int , default=10,  required=False ,help='The size of the grid in the Y direction' )
     parser.add_argument('--coverage', type=float , default=0.1,  required=False ,help='What percent of the grid will be covered with obstacles' )
     parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
     
     args = parser.parse_args()
     # hero = 
     graph_generator = generate_graph(args.x_size, args.y_size, args.coverage, args.square_size)
-    wrld = world(args.x_size,args.y_size, args.coverage, args.square_size, graph_generator)
-    plt = wrld.make_starting_world(start = [0,0], goal = [5,5])
-    plt.show()
+    map, shapes = graph_generator.make_grid()
+    # wrld = world(args.x_size,args.y_size, args.coverage, args.square_size, graph_generator)
+    # plt = wrld.make_starting_world(start = [0,0], goal = [5,5])
+    # plt.show()
 
 
 if __name__ == "__main__":
