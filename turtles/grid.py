@@ -26,7 +26,7 @@ mapping = [
 
 
 class generate_graph:
-    def __init__(self, xlim, ylim, coverage,square_size = 1 ,obstacle_size = 2):
+    def __init__(self, xlim, ylim, coverage,square_size = 1 ,obstacle_size = 4):
         self.coverage = coverage
         self.xlim = xlim
         self.ylim = ylim
@@ -37,31 +37,31 @@ class generate_graph:
         self.prev_dir = 0
         self.array = np.zeros((self.xlim, self.ylim), dtype=int) 
         self.corner_array = np.zeros((self.xlim+1, self.ylim+1), dtype=int)
+
     def make_grid(self):
         """Generates the array and size of the obstacle course, plots the course
         """
         num_shapes = int((self.coverage * ((self.xlim) * (self.ylim)) / (self.square_size ** 2))/4)+1
-        num_shapes = 2
+        # num_shapes = 2
         print(f"The number of shapes is {num_shapes}")
         for _ in range(num_shapes):
             self.create_shape()
-        # print(self.array)
         self.generate_corner_graph()
-        print(self.corner_array)
-        
-        return self.array, self.find_obstacle_edges()
-        # title = f"{self.xlim} X {self.ylim} Grid with {self.coverage*100}% Covereage"
-        # self.visualize_grid(title)
-        # input()
+        start, goal = self.start_and_goal()
+        return self.array, start, goal
+    
+    def choose_open_spot(self):
+        open_x, open_y = np.where(self.array == 0)
+        x = random.choice(open_x)
+        y = random.choice(open_y)
+        return x, y
     def create_shape(self):
         """Randomly seeds a shape that has and area of self.obstacle_size 
             The squares grow from the inital seed in a random direction
             The shape is stored by its starting corner in the array of the entire map
         """
-        open_x, open_y = np.where(self.array == 0)
-        self.x_start = random.choice(open_x)
-        self.y_start = random.choice(open_y)
-        self.array[self.y_start, self.x_start] = 1
+        self.x_start, self.y_start = self.choose_open_spot()
+        self.array[self.x_start, self.y_start] = 1
         self.prev_dir = None
         for _ in range(self.obstacle_size -1):         #randomly increment in one direction frrom the previous rectangle, adding it to the graph. when you get to 3 new rectangles stop       
             self.choose_dir(self.prev_dir)
@@ -77,7 +77,6 @@ class generate_graph:
         Args:
             check_dir (int): The direction of the previously called square, to check for the doubling back condition
         """
-        #generate all random numbers 0-obstacle_size and remove theinvalid entry that would cause double backing
         invalid_dir = None
         if check_dir is not None:    
             invalid_dir_check = next((entry for entry in mapping if entry.value == check_dir))
@@ -87,9 +86,7 @@ class generate_graph:
         valid_dirs = list(range(self.obstacle_size))
         if invalid_dir is not None and invalid_dir in valid_dirs:
             valid_dirs.remove(invalid_dir)  # Only remove if check_dir is in valid_dirs   
-        # print(f"Valid Directions are {valid_dirs}")
         rand_num = choice(valid_dirs)
-        # print(f"random number is {rand_num}")
         direction = next((entry for entry in mapping if entry.value == rand_num))         #update the x_start and y_Start
         if direction:
             self.x_start = self.x_start + direction.x
@@ -97,38 +94,16 @@ class generate_graph:
     
             self.prev_dir = direction.inverse
     def generate_corner_graph(self):
+
         for i in range(self.xlim):
             for j in range(self.ylim):
                 if self.array[i][j] == 1:
-                    # print('Corner Found')
                     self.corner_array[i][j] = 1
                     self.corner_array[i+1][j] = 1
                     self.corner_array[i][j+1] = 1
                     self.corner_array[i+1][j+1] = 1
-        
         return self.corner_array
-    # def generate_visibility_graph(self, start, goal):
-    #     #two verticies(u,v) are visible if the line segment connecting them does not intersect any obstacle
-    #     g = []
-    #     x_corner, y_corner = np.where(self.corner_array == 1)
-        
-    #     edge_array= self.find_obstacle_edges()        
-    #     verticies = [start]
-    #     for i in range(len(x_corner)):
-    #         verticies.append([int(x_corner[i]), int(y_corner[i])]) 
-    #     verticies.append(goal)
-    #     # print(f"edge array {edge_array}")
 
-    #     for i, pair in enumerate(combinations(verticies, 2)):   #create  pairs of every vertice on the map
-    #         # print(f"pair {i} {pair}")
-    #         for i in range(len(edge_array)):   ##check for pairs that match the edges of the obstacle
-    #             if pair == edge_array[i]:
-    #                 g.append(pair)
-            
-                
-
-    #     # print(verticies)
-    #     return g
     def find_obstacle_edges(self):
         self.generate_corner_graph #make sure we actualyl find the corners first lmao
         all_edges = []
@@ -147,7 +122,17 @@ class generate_graph:
             all_edges.append(contour_edges)
         return all_edges
 
-    
+    def start_and_goal(self, goal_distance = 5):
+        open_x, open_y = np.where(self.array == 0)
+        start_idx = random.choice(range(len(open_x)))  
+        start_x, start_y = open_x[start_idx], open_y[start_idx]
+        valid_goals = []
+        for x, y in zip(open_x, open_y):
+            if abs(x - start_x) >= goal_distance or abs(y - start_y) >= goal_distance:
+                valid_goals.append((x, y))
+        goal_x, goal_y = random.choice(valid_goals)
+        print(f"Start Pos {start_x}, {start_y}\n Goal Pos {goal_x}, {goal_y}")
+        return (start_y, start_x), (goal_y, goal_x)
 
     
 
