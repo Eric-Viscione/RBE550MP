@@ -47,8 +47,8 @@ class generate_graph:
         for _ in range(num_shapes):
             self.create_shape()
         self.generate_corner_graph()
-        start, goal = self.start_and_goal()
-        return self.array, start, goal
+        # start, goal = self.start_and_goal()
+        return self.array
     
     def choose_open_spot(self):
         open_x, open_y = np.where(self.array == 0)
@@ -122,22 +122,23 @@ class generate_graph:
             all_edges.append(contour_edges)
         return all_edges
 
-    def start_and_goal(self, goal_distance = 5):
-        open_x, open_y = np.where(self.array == 0)
-        start_idx = random.choice(range(len(open_x)))  
-        start_x, start_y = open_x[start_idx], open_y[start_idx]
-        valid_goals = []
-        for x, y in zip(open_x, open_y):
-            if abs(x - start_x) >= goal_distance or abs(y - start_y) >= goal_distance:
-                valid_goals.append((x, y))
-        goal_x, goal_y = random.choice(valid_goals)
-        print(f"Start Pos {start_x}, {start_y}\n Goal Pos {goal_x}, {goal_y}")
-        return (start_y, start_x), (goal_y, goal_x)
-
-    
-
-
-        
+    def start_and_goal(self, grid, invalid_locations , goal_distance = 2,):
+        open_x, open_y = np.where(np.isin(grid, invalid_locations, invert=True))
+        while True:
+            start_idx = random.choice(range(len(open_x)))  
+            start_x, start_y = open_x[start_idx], open_y[start_idx]
+            valid_goals = []
+            for x, y in zip(open_x, open_y):
+                if abs(x - start_x) >= goal_distance or abs(y - start_y) >= goal_distance:
+                    valid_goals.append((x, y))
+            goal_x, goal_y = random.choice(valid_goals)
+            if not self.is_obstacle(start_x, start_y, grid) and not self.is_obstacle(goal_x, goal_y, grid):
+                return (int(start_y), int(start_x)), (int(goal_y), int(goal_x))
+            print("Recalculating goals")
+    @staticmethod
+    def is_obstacle(row, col, map_world):
+        return map_world[row][col] == 1
+   
 
 
 
@@ -147,8 +148,8 @@ class generate_graph:
 
 def main():
     parser = argparse.ArgumentParser(description ='Create a Grid World')
-    parser.add_argument('--x_size', type=int , default=10,  required=False ,help='The size of the grid in the X direction' )
-    parser.add_argument('--y_size', type=int , default=10,  required=False ,help='The size of the grid in the Y direction' )
+    parser.add_argument('--x_size', type=int , default=5,  required=False ,help='The size of the grid in the X direction' )
+    parser.add_argument('--y_size', type=int , default=5,  required=False ,help='The size of the grid in the Y direction' )
     parser.add_argument('--coverage', type=float , default=0.1,  required=False ,help='What percent of the grid will be covered with obstacles' )
     parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
     

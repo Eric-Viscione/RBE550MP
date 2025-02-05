@@ -14,28 +14,42 @@ BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
-
-debug = False
+GOLD = (255, 215, 0)
+OBSTACLE = 1
+HERO = 2
+ENEMY = 3
+DEBRIS = 1
+GOAL = 4
+PATH = 7
+debug = True
 
 class game_run:
-    def __init__(self, grid_map, start, goal , window_size = 1080):
-        self.grid_map = grid_map  # Store the grid map
+    def __init__(self, graph_generator, window_size = 1080):
+        self.grid_map = None  # Store the grid map
+
+        # print(self.TILE_SIZE)
+        self.graph_generator = graph_generator
+        self.delay = 500  #delay between each tick
+        # self.start = start
+        # self.goal = goal
+        self.window_size = window_size
+        self.goal = None
+        self.window_height = None
+        self.window_width = None
+    def start_game(self, grid_map):
+        if grid_map is None or grid_map.size == 0:  # Check for empty grid
+            raise ValueError("Grid map is empty or invalid!")
+        self.grid_map = grid_map
         width = len(self.grid_map[0])
         height = len(self.grid_map)
-        self.TILE_SIZE = int(min(window_size/width, window_size/height))
-        print(self.TILE_SIZE)
-
-        
-        self.GRID_WIDTH = len(self.grid_map[0]) * self.TILE_SIZE
-        self.GRID_HEIGHT = len(self.grid_map) * self.TILE_SIZE
-
-        self.delay = 500
-        self.start = start
-        self.goal = goal
-
+        self.TILE_SIZE = int(min(self.window_size/width, self.window_size/height))
+        GRID_WIDTH = len(self.grid_map[0]) * self.TILE_SIZE
+        GRID_HEIGHT = len(self.grid_map) * self.TILE_SIZE
+        self.window_width = GRID_WIDTH
+        self.window_height = GRID_HEIGHT
         pygame.init()
-        pygame.display.set_caption("Binary Grid Map")
-        self.screen = pygame.display.set_mode((self.GRID_WIDTH, self.GRID_HEIGHT))
+        pygame.display.set_caption("Flatlands")
+        self.screen = pygame.display.set_mode((GRID_WIDTH, GRID_HEIGHT))
         self.clock = pygame.time.Clock()
     def draw_grid(self):
         font = pygame.font.SysFont("Arial", 12)  # Set font and size for the text
@@ -77,53 +91,120 @@ class game_run:
         scale_factor = self.TILE_SIZE
         x_center = (char.position[1]) * scale_factor + (self.TILE_SIZE / 2)  # For x, use column (pos[1])
         y_center = char.position[0] * scale_factor + (self.TILE_SIZE / 2)  # For y, use row (pos[0])
-        pygame.draw.circle(self.screen, GREEN, (x_center, y_center), self.TILE_SIZE / 2)
+        pygame.draw.circle(self.screen, char.color, (x_center, y_center), self.TILE_SIZE / 2)
 
+    def display_screen(self,status):
+        win_path = "images/win.png"
+        lose_path = "images/lose.png"
+        images = {'win'  : (win_path, GOLD),
+                  'lose' : (lose_path, RED)
+                  }
+        image_path, color = images[status]
+        image = pygame.image.load(image_path).convert()
+        width, height = image.get_width(), image.get_height()
+        top_left_center_width = (self.window_width/2) - width/2
+        top_left_center_height = (self.window_height/2) - height/2
 
+        self.screen.fill(color)
+        # self.screen = pygame.display.set_mode((width, height))
+        self.screen.blit(image, (top_left_center_width,top_left_center_height))
 
+    def show_path(self, path):
+        path_grid = np.copy(self.grid_map)
+        for i in range(len(path)):
+            path_grid[int(path[i][0]), int(path[i][1])] = PATH
+
+        self.debug_print("Path in the grid world", path_grid)
+    def seperate_print(self, coord, character):
+     
+        seperate_grid = np.copy(self.grid_map)
+        seperate_grid[coord[0], coord[1]] = character
+        self.debug_print("Test Map Printing", seperate_grid)
+
+    @staticmethod
+    def debug_print(reason, printey):
+        if debug:
+            print(f"{reason}:\n {printey}")
     def run(self):
-        
-        running = True
-        hero = characters.hero(self.start, self.grid_map, self.goal, debug)
-        tick = 0
-        hero.path_finding()
-        if hero.path == None:
-            self.start, self.goal = grid.start_and_goal()
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-            
-            self.screen.fill(WHITE)
-            self.draw_grid()
-            
-            if tick < len(hero.path):
-                hero.move_character(hero.path[tick])
-                tick += 1
-                pygame.time.wait(self.delay)
-            else:
-                pygame.time.wait(self.delay)
+        invalid_hero_positions = [1, 3 , 4]
+        invalid_enemy_positions = [1,2,3,4]
+        num_wins = 0 #debug variable
+        running = True #controls when the game stops
+        num_init_path_tries = 0 #number of tries to find a valid world
+        tick = 0 #keeps track of the game ticks
 
-            self.draw_character(hero)
-            pygame.display.flip()
-            
-            # if hero.position == self.goal:
-            #     print("The hero won!")
+        self.grid_map = self.graph_generator.make_grid()  ##create the grid based map and initlize start and end locations
+        hero_start, goal = self.graph_generator.start_and_goal(self.grid_map, invalid_hero_positions)
+        self.grid_map[goal[0], goal[1]] = GOAL  
+        hero = characters.hero(hero_start)  ##create the hero character with a start location
+        self.debug_print("Heros position", hero.position)
+        self.grid_map[hero.position[0], hero.position[1]] = HERO
+        ##i need to make it so that the initialziion of a character updates the map
+        enemy_start, _ = self.graph_generator.start_and_goal(self.grid_map, invalid_enemy_positions)
+        enemy1 = characters.enemy(enemy_start)
+        while hero.path == None:   ##check if the map, start and goal positions can create a valid path so the game always at least tries to start
+            if num_init_path_tries > 10:
+                self.grid_map = self.graph_generator.make_grid()
+                hero_start, goal = self.graph_generator.start_and_and_goal(self.grid_map)
+            hero.path_finding(hero.position, goal, self.grid_map)
+            if hero.path == None:
+                her0_start, self.goal = self.graph_generator.start_and_goal(self.grid_map)
+            num_init_path_tries += 1
+        self.debug_print("First map after creation", self.grid_map)
+        self.debug_print("hero Start Pos", hero_start)
+        self.debug_print("Goal Pos", goal)
+        #I want to eventually make the grid update to show where the hero, goal and enemies are but that doesnt work yet
+
+        # print("Map before loop\n", self.grid_map)
+        self.start_game(self.grid_map)
+        self.debug_print("Grid map at the start", self.grid_map)
+        while running:  ##infinite loop while running
+            self.debug_print("debug_path", self.show_path(hero.path))
+            self.goal = goal
+            if hero.position != goal:  ##if the hero has not reached the goal, find a path to the goal
+                hero.path = None  ##clear the path before each search idk why
+                tick = 1 #reset the tick counter each time we create a path. Should it be initalized to 1 so we get the second value in the path??
+                hero.path_finding(hero.position, goal, self.grid_map)
+                if enemy1.status == 'alive':
+                    enemy1.path = None
+                    enemy1.path_finding(enemy1.position, self.grid_map, hero.position)
+            if hero.path == None:  ##if there is no valid path that can be found, the hero loses
                 # running = False
-            self.clock.tick(60)
-        pygame.quit()
+                print("The hero lost!")
+                self.display_screen('lose')
+                # break
+            else:
+                self.screen.fill(WHITE) ##set the background
+                self.draw_grid()        ##draw the base grid with obstacles
+                
+                if tick < len(hero.path):  #a check to make sure we dont out of bounds the path
+                    self.grid_map = hero.move_character(hero.path[tick], self.grid_map, HERO)  #move the character to a new positon, and update the map and its position with that
+                    pygame.time.wait(self.delay)
+                    self.grid_map, enemy1.status = enemy1.move_character(enemy1.path[tick], self.grid_map, ENEMY)
+                    tick += 1       #I think I can get rid of this now
+                    
+
+                self.draw_character(hero)   ##place the character on the grid
+                self.draw_character(enemy1)
+                
+                if hero.position == self.goal:  ##check if the game is over and the hero won
+                    if debug != True:       ##in normal running, we stop running, print on the terminal the games won, and hopefulyl display a winning screen
+                        # running = False
+                        print("The hero won!")
+                        self.display_screen('win')
+                    else:                   ##debug does all that but does not kill the game
+                        self.display_screen('win')
+                        if num_wins < 1:
+                            print("The hero won!")
+                            # num_wins += 1
+                            
+            pygame.display.flip()
+            pygame.time.wait(self.delay) #makes the game wait to do the next step
+        pygame.quit()  #quic the game once we exit
 
 
 def main():
-    parser = argparse.ArgumentParser(description ='Create a Grid World')
-    parser.add_argument('--x_size', type=int , default=50,  required=False ,help='The size of the grid in the X direction' )
-    parser.add_argument('--y_size', type=int , default=50,  required=False ,help='The size of the grid in the Y direction' )
-    parser.add_argument('--coverage', type=float , default=0.1,  required=False ,help='What percent of the grid will be covered with obstacles' )
-    parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
-    args = parser.parse_args()
-    graph_generator = grid.generate_graph(args.x_size, args.y_size, args.coverage, args.square_size)
-    map_array,start, goal = graph_generator.make_grid()
-    # map_array = [
+    # map_array = [  Basic map for debugging
     # [0, 0, 0, 0],
     # [0, 1, 1, 0],
     # [0, 1, 1, 0],
@@ -131,10 +212,18 @@ def main():
     # ]
     # start = (0,0)
     # goal = (3,3)
-    print(map_array)
-    # map_array = map_array.tolist()
+    parser = argparse.ArgumentParser(description ='Create a Grid World')
+    parser.add_argument('--x_size', type=int , default=8,  required=False ,help='The size of the grid in the X direction' )
+    parser.add_argument('--y_size', type=int , default=8,  required=False ,help='The size of the grid in the Y direction' )
+    parser.add_argument('--coverage', type=float , default=0.1,  required=False ,help='What percent of the grid will be covered with obstacles' )
+    parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
+    args = parser.parse_args()
+    graph_generator = grid.generate_graph(args.x_size, args.y_size, args.coverage, args.square_size)
+    # map_array,start, goal = graph_generator.make_grid()
+
+    # print(map_array)
     
-    game = game_run(map_array, start, goal)
+    game = game_run(graph_generator)
     game.run()
     
 if __name__ == "__main__":
