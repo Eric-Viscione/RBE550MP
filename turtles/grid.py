@@ -122,7 +122,7 @@ class generate_graph:
             all_edges.append(contour_edges)
         return all_edges
 
-    def start_and_goal(self, grid, invalid_locations , goal_distance = 2,):
+    def start_and_goal(self, grid, invalid_locations , goal_distance = 5,):
         open_x, open_y = np.where(np.isin(grid, invalid_locations, invert=True))
         while True:
             start_idx = random.choice(range(len(open_x)))  

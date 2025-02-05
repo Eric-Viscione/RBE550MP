@@ -88,6 +88,7 @@ class game_run:
 
     def draw_character(self, char):
         # print("Characters Position", char.position)
+        
         scale_factor = self.TILE_SIZE
         x_center = (char.position[1]) * scale_factor + (self.TILE_SIZE / 2)  # For x, use column (pos[1])
         y_center = char.position[0] * scale_factor + (self.TILE_SIZE / 2)  # For y, use row (pos[0])
@@ -128,6 +129,7 @@ class game_run:
     def run(self):
         invalid_hero_positions = [1, 3 , 4]
         invalid_enemy_positions = [1,2,3,4]
+        num_enemies = 5
         num_wins = 0 #debug variable
         running = True #controls when the game stops
         num_init_path_tries = 0 #number of tries to find a valid world
@@ -137,37 +139,38 @@ class game_run:
         hero_start, goal = self.graph_generator.start_and_goal(self.grid_map, invalid_hero_positions)
         self.grid_map[goal[0], goal[1]] = GOAL  
         hero = characters.hero(hero_start)  ##create the hero character with a start location
+        self.grid_map = hero.move_character(hero_start, self.grid_map, HERO)
         self.debug_print("Heros position", hero.position)
         self.grid_map[hero.position[0], hero.position[1]] = HERO
         ##i need to make it so that the initialziion of a character updates the map
-        enemy_start, _ = self.graph_generator.start_and_goal(self.grid_map, invalid_enemy_positions)
-        enemy1 = characters.enemy(enemy_start)
+        enemy_list = [None] * num_enemies
+        for i in range(num_enemies):
+            temp_enemy_start, _ = self.graph_generator.start_and_goal(self.grid_map, invalid_enemy_positions)
+            enemy = characters.enemy(temp_enemy_start)
+            self.grid_map, enemy.status = enemy.move_character(temp_enemy_start, self.grid_map, ENEMY)
+            enemy_list[i] = enemy
         while hero.path == None:   ##check if the map, start and goal positions can create a valid path so the game always at least tries to start
             if num_init_path_tries > 10:
                 self.grid_map = self.graph_generator.make_grid()
                 hero_start, goal = self.graph_generator.start_and_and_goal(self.grid_map)
             hero.path_finding(hero.position, goal, self.grid_map)
             if hero.path == None:
-                her0_start, self.goal = self.graph_generator.start_and_goal(self.grid_map)
+                hero_start, self.goal = self.graph_generator.start_and_goal(self.grid_map)
             num_init_path_tries += 1
-        self.debug_print("First map after creation", self.grid_map)
-        self.debug_print("hero Start Pos", hero_start)
-        self.debug_print("Goal Pos", goal)
-        #I want to eventually make the grid update to show where the hero, goal and enemies are but that doesnt work yet
 
-        # print("Map before loop\n", self.grid_map)
         self.start_game(self.grid_map)
         self.debug_print("Grid map at the start", self.grid_map)
         while running:  ##infinite loop while running
-            self.debug_print("debug_path", self.show_path(hero.path))
             self.goal = goal
             if hero.position != goal:  ##if the hero has not reached the goal, find a path to the goal
                 hero.path = None  ##clear the path before each search idk why
-                tick = 1 #reset the tick counter each time we create a path. Should it be initalized to 1 so we get the second value in the path??
-                hero.path_finding(hero.position, goal, self.grid_map)
-                if enemy1.status == 'alive':
-                    enemy1.path = None
-                    enemy1.path_finding(enemy1.position, self.grid_map, hero.position)
+                tick = 1 #reset the tick counter each time we create a path
+                hero.path_finding(hero.position, goal, self.grid_map) #I need to figure out why the path doesnt avoid enemies they should be ignored
+                for enemy in enemy_list:
+        
+                    if enemy.status == 'alive':
+                        enemy.path = None
+                        enemy.path_finding(enemy.position, self.grid_map, hero.position)
             if hero.path == None:  ##if there is no valid path that can be found, the hero loses
                 # running = False
                 print("The hero lost!")
@@ -180,12 +183,17 @@ class game_run:
                 if tick < len(hero.path):  #a check to make sure we dont out of bounds the path
                     self.grid_map = hero.move_character(hero.path[tick], self.grid_map, HERO)  #move the character to a new positon, and update the map and its position with that
                     pygame.time.wait(self.delay)
-                    self.grid_map, enemy1.status = enemy1.move_character(enemy1.path[tick], self.grid_map, ENEMY)
+                    for enemy in enemy_list:
+                        if enemy.path == None:
+                            enemy.status = 'destroyed'
+                            pass
+                        self.grid_map, enemy.status = enemy.move_character(enemy.path[tick], self.grid_map, ENEMY)
                     tick += 1       #I think I can get rid of this now
                     
 
                 self.draw_character(hero)   ##place the character on the grid
-                self.draw_character(enemy1)
+                for enemy in enemy_list:
+                    self.draw_character(enemy)
                 
                 if hero.position == self.goal:  ##check if the game is over and the hero won
                     if debug != True:       ##in normal running, we stop running, print on the terminal the games won, and hopefulyl display a winning screen
@@ -213,8 +221,8 @@ def main():
     # start = (0,0)
     # goal = (3,3)
     parser = argparse.ArgumentParser(description ='Create a Grid World')
-    parser.add_argument('--x_size', type=int , default=8,  required=False ,help='The size of the grid in the X direction' )
-    parser.add_argument('--y_size', type=int , default=8,  required=False ,help='The size of the grid in the Y direction' )
+    parser.add_argument('--x_size', type=int , default=100,  required=False ,help='The size of the grid in the X direction' )
+    parser.add_argument('--y_size', type=int , default=100,  required=False ,help='The size of the grid in the Y direction' )
     parser.add_argument('--coverage', type=float , default=0.1,  required=False ,help='What percent of the grid will be covered with obstacles' )
     parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
     args = parser.parse_args()
