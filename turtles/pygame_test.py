@@ -21,39 +21,31 @@ ENEMY = 3
 DEBRIS = 1
 GOAL = 4
 PATH = 7
-debug = True
+debug = False
 
-class game_run:
-    def __init__(self, graph_generator, window_size = 1080):
-        self.grid_map = None  # Store the grid map
 
-        # print(self.TILE_SIZE)
-        self.graph_generator = graph_generator
-        self.delay = 500  #delay between each tick
-        # self.start = start
-        # self.goal = goal
+
+class renderer:
+    def __init__(self,  window_size = 1000 ):
+        self.screen = None
+        self.status = None
         self.window_size = window_size
         self.goal = None
-        self.window_height = None
-        self.window_width = None
-    def start_game(self, grid_map):
-        if grid_map is None or grid_map.size == 0:  # Check for empty grid
-            raise ValueError("Grid map is empty or invalid!")
-        self.grid_map = grid_map
-        width = len(self.grid_map[0])
-        height = len(self.grid_map)
-        self.TILE_SIZE = int(min(self.window_size/width, self.window_size/height))
-        GRID_WIDTH = len(self.grid_map[0]) * self.TILE_SIZE
-        GRID_HEIGHT = len(self.grid_map) * self.TILE_SIZE
-        self.window_width = GRID_WIDTH
-        self.window_height = GRID_HEIGHT
-        pygame.init()
-        pygame.display.set_caption("Flatlands")
-        self.screen = pygame.display.set_mode((GRID_WIDTH, GRID_HEIGHT))
-        self.clock = pygame.time.Clock()
+        pass
+    def update_screen(self, status, grid_map, hero, enemy_list, goal):
+        self.goal = goal
+        if status == 'lost':
+            self.display_screen(status)
+        if status == 'won':
+            self.display_screen(status)
+        else:
+            self.draw_grid()
+            self.draw_character(hero)
+            for enemy in enemy_list:
+                self.draw_character(enemy)
     def draw_grid(self):
         font = pygame.font.SysFont("Arial", 12)  # Set font and size for the text
-
+        self.screen.fill(WHITE) ##set the background
         """Draw the grid based on binary data."""
         for row in range(len(self.grid_map)):
             for col in range(len(self.grid_map[row])):
@@ -97,8 +89,8 @@ class game_run:
     def display_screen(self,status):
         win_path = "images/win.png"
         lose_path = "images/lose.png"
-        images = {'win'  : (win_path, GOLD),
-                  'lose' : (lose_path, RED)
+        images = {'won'  : (win_path, GOLD),
+                  'lost' : (lose_path, RED)
                   }
         image_path, color = images[status]
         image = pygame.image.load(image_path).convert()
@@ -109,106 +101,103 @@ class game_run:
         self.screen.fill(color)
         # self.screen = pygame.display.set_mode((width, height))
         self.screen.blit(image, (top_left_center_width,top_left_center_height))
+    def start_game(self, grid_map):
 
-    def show_path(self, path):
-        path_grid = np.copy(self.grid_map)
-        for i in range(len(path)):
-            path_grid[int(path[i][0]), int(path[i][1])] = PATH
+        if grid_map is None or grid_map.size == 0:  # Check for empty grid
+            raise ValueError("Grid map is empty or invalid!")
+        
+        self.grid_map = grid_map
+        width = len(self.grid_map[0])
+        height = len(self.grid_map)
+        self.TILE_SIZE = int(min(self.window_size/width, self.window_size/height))
 
-        self.debug_print("Path in the grid world", path_grid)
-    def seperate_print(self, coord, character):
-     
-        seperate_grid = np.copy(self.grid_map)
-        seperate_grid[coord[0], coord[1]] = character
-        self.debug_print("Test Map Printing", seperate_grid)
+        GRID_WIDTH = len(self.grid_map[0]) * self.TILE_SIZE
+        GRID_HEIGHT = len(self.grid_map) * self.TILE_SIZE
+        self.window_width = GRID_WIDTH
+        self.window_height = GRID_HEIGHT
+        pygame.init()
+        pygame.display.set_caption("Flatlands")
+        self.screen = pygame.display.set_mode((GRID_WIDTH, GRID_HEIGHT))
+        self.clock = pygame.time.Clock()
+    
+class game_run:
 
-    @staticmethod
-    def debug_print(reason, printey):
-        if debug:
-            print(f"{reason}:\n {printey}")
-    def run(self):
-        invalid_hero_positions = [1, 3 , 4]
-        invalid_enemy_positions = [1,2,3,4]
-        num_enemies = 5
-        num_wins = 0 #debug variable
-        running = True #controls when the game stops
-        num_init_path_tries = 0 #number of tries to find a valid world
-        tick = 0 #keeps track of the game ticks
-
+    def __init__(self, graph_generator,renderer):
+        self.graph_generator = graph_generator
+        self.renderer = renderer
+        self.grid_map = None  # Store the grid map        
+        self.running = True
+        self.hero = None
+        self.invalid_hero_positions = invalid_hero_positions = [1,3,4]
+        self.invalid_enemy_positions = invalid_enemy_positions = [1,2,3,4]
+        self.num_enemies =  10
+        self.enemy_list = [None] *self.num_enemies
+        self.goal = None
+        self.status = 'running'
+        self.delay = 100
+    def world_setup(self):
+        num_init_path_tries = 0
         self.grid_map = self.graph_generator.make_grid()  ##create the grid based map and initlize start and end locations
-        hero_start, goal = self.graph_generator.start_and_goal(self.grid_map, invalid_hero_positions)
-        self.grid_map[goal[0], goal[1]] = GOAL  
-        hero = characters.hero(hero_start)  ##create the hero character with a start location
-        self.grid_map = hero.move_character(hero_start, self.grid_map, HERO)
-        self.debug_print("Heros position", hero.position)
-        self.grid_map[hero.position[0], hero.position[1]] = HERO
-        ##i need to make it so that the initialziion of a character updates the map
-        enemy_list = [None] * num_enemies
-        for i in range(num_enemies):
-            temp_enemy_start, _ = self.graph_generator.start_and_goal(self.grid_map, invalid_enemy_positions)
-            enemy = characters.enemy(temp_enemy_start)
-            self.grid_map, enemy.status = enemy.move_character(temp_enemy_start, self.grid_map, ENEMY)
-            enemy_list[i] = enemy
-        while hero.path == None:   ##check if the map, start and goal positions can create a valid path so the game always at least tries to start
+        hero_start, self.goal = self.graph_generator.start_and_goal(self.grid_map, self.invalid_hero_positions)
+        self.grid_map[self.goal[0], self.goal[1]] = GOAL  
+        self.hero = characters.hero(hero_start)  ##create the hero character with a start location
+        self.grid_map = self.hero.move_character(hero_start, self.grid_map, HERO)
+
+        while self.hero.path == None:   ##check if the map, start and goal positions can create a valid path so the game always at least tries to start
             if num_init_path_tries > 10:
                 self.grid_map = self.graph_generator.make_grid()
                 hero_start, goal = self.graph_generator.start_and_and_goal(self.grid_map)
-            hero.path_finding(hero.position, goal, self.grid_map)
-            if hero.path == None:
-                hero_start, self.goal = self.graph_generator.start_and_goal(self.grid_map)
+            self.hero.path_finding(self.hero.position, self.goal, self.grid_map)
+            if self.hero.path == None:
+                hero_start, self.goal = self.graph_generator.start_and_goal(self.grid_map, self.invalid_hero_positions)
             num_init_path_tries += 1
 
-        self.start_game(self.grid_map)
-        self.debug_print("Grid map at the start", self.grid_map)
-        while running:  ##infinite loop while running
-            self.goal = goal
-            if hero.position != goal:  ##if the hero has not reached the goal, find a path to the goal
-                hero.path = None  ##clear the path before each search idk why
-                tick = 1 #reset the tick counter each time we create a path
-                hero.path_finding(hero.position, goal, self.grid_map) #I need to figure out why the path doesnt avoid enemies they should be ignored
-                for enemy in enemy_list:
-        
-                    if enemy.status == 'alive':
-                        enemy.path = None
-                        enemy.path_finding(enemy.position, self.grid_map, hero.position)
-            if hero.path == None:  ##if there is no valid path that can be found, the hero loses
-                # running = False
-                print("The hero lost!")
-                self.display_screen('lose')
-                # break
-            else:
-                self.screen.fill(WHITE) ##set the background
-                self.draw_grid()        ##draw the base grid with obstacles
-                
-                if tick < len(hero.path):  #a check to make sure we dont out of bounds the path
-                    self.grid_map = hero.move_character(hero.path[tick], self.grid_map, HERO)  #move the character to a new positon, and update the map and its position with that
-                    pygame.time.wait(self.delay)
-                    for enemy in enemy_list:
-                        if enemy.path == None:
-                            enemy.status = 'destroyed'
-                            pass
-                        self.grid_map, enemy.status = enemy.move_character(enemy.path[tick], self.grid_map, ENEMY)
-                    tick += 1       #I think I can get rid of this now
-                    
 
-                self.draw_character(hero)   ##place the character on the grid
-                for enemy in enemy_list:
-                    self.draw_character(enemy)
-                
-                if hero.position == self.goal:  ##check if the game is over and the hero won
-                    if debug != True:       ##in normal running, we stop running, print on the terminal the games won, and hopefulyl display a winning screen
-                        # running = False
-                        print("The hero won!")
-                        self.display_screen('win')
-                    else:                   ##debug does all that but does not kill the game
-                        self.display_screen('win')
-                        if num_wins < 1:
-                            print("The hero won!")
-                            # num_wins += 1
+        for i in range(self.num_enemies):
+            temp_enemy_start, _ = self.graph_generator.start_and_goal(self.grid_map, self.invalid_enemy_positions)
+            enemy = characters.enemy(temp_enemy_start)
+            self.grid_map, enemy.status = enemy.move_character(temp_enemy_start, self.grid_map, ENEMY)
+            self.enemy_list[i] = enemy
+    def character_paths(self):
+        if self.hero.position != self.goal:  ##if the hero has not reached the goal, find a path to the goal
+            self.hero.path = None  ##clear the path before each search idk why
+            self.hero.path_finding(self.hero.position, self.goal, self.grid_map) #I need to figure out why the path doesnt avoid enemies they should be ignored
+
+            for enemy in self.enemy_list:
+                if enemy.status == 'alive':
+                    enemy.path = None
+                    enemy.path_finding(enemy.position, self.grid_map, self.hero.position)
+
+    def move_characters(self):
+        
+        self.grid_map = self.hero.move_character(self.hero.path[1], self.grid_map, HERO)  #move the character to a new positon, and update the map and its position with that
+        self.status = 'lost' if self.hero.path == None else 'running'
+        self.status = 'won' if self.hero.position == self.goal else 'running'
+        for enemy in self.enemy_list:
+            if enemy.path == None:
+                enemy.status = 'destroyed'
+                self.grid_map, enemy.status = enemy.move_character(enemy.position, self.grid_map, ENEMY)
+                pass
+            else:
+                self.grid_map, enemy.status = enemy.move_character(enemy.path[1], self.grid_map, ENEMY)
+
+
+    def run(self):
+        num_wins = 0 #debug variable
+         #number of tries to find a valid world
+        tick = 1 #keeps track of the game ticks
+        self.world_setup()
+        self.renderer.start_game(self.grid_map)
+        while self.running:  ##infinite loop while running
+            self.character_paths()
+            self.move_characters()
+            # if self.status == 'lost':
+            # elif hero.position
+            self.renderer.update_screen(self.status, self.grid_map, self.hero, self.enemy_list, self.goal)
                             
             pygame.display.flip()
             pygame.time.wait(self.delay) #makes the game wait to do the next step
-        pygame.quit()  #quic the game once we exit
+        pygame.quit()  #quit the game once we exit
 
 
 def main():
@@ -223,15 +212,16 @@ def main():
     parser = argparse.ArgumentParser(description ='Create a Grid World')
     parser.add_argument('--x_size', type=int , default=100,  required=False ,help='The size of the grid in the X direction' )
     parser.add_argument('--y_size', type=int , default=100,  required=False ,help='The size of the grid in the Y direction' )
-    parser.add_argument('--coverage', type=float , default=0.1,  required=False ,help='What percent of the grid will be covered with obstacles' )
+    parser.add_argument('--coverage', type=float , default=0.2,  required=False ,help='What percent of the grid will be covered with obstacles' )
     parser.add_argument('--square_size', type=int , default=1,  required=False ,help='How large each square in an obstacle will be' )
     args = parser.parse_args()
     graph_generator = grid.generate_graph(args.x_size, args.y_size, args.coverage, args.square_size)
+    renderer_engine = renderer()
     # map_array,start, goal = graph_generator.make_grid()
 
     # print(map_array)
     
-    game = game_run(graph_generator)
+    game = game_run(graph_generator, renderer_engine)
     game.run()
     
 if __name__ == "__main__":

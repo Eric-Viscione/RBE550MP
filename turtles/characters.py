@@ -13,22 +13,21 @@ class character:
         self.position = start_pos
         
         self.path = None
-    def move_character(self, new_pos, grid_world, character):
-        if new_pos is not None:
-            if new_pos[0] >= len(grid_world) or new_pos[1] >= len(grid_world[0]):
-                print("Invalid Move Position Exiting Game!")
-                return grid_world
-            else:
-                new_world_grid = np.copy(grid_world)
-                new_world_grid[self.position[0], self.position[1]] = 0
-                self.position = new_pos
-                debug_print("Move to position", self.position)
-                debug_print("Character value is ", character)
-                new_world_grid[self.position[0], self.position[1]] = character
-                debug_print("Heros movement updated in grid", new_world_grid)
-                return new_world_grid
+    def valid_position(self, new_pos, grid_world):
+        rows, cols = grid_world.shape
+        return 0 <= new_pos[0] < rows and 0 <= new_pos[1] < cols
+    def move_character(self, new_pos, grid_world, character_value):
+        if not self.valid_position(new_pos, grid_world):
+            print("Invalid Move Position! Exiting Game.")
+            return grid_world
+        else:
+            grid_world[self.position[0], self.position[1]] = 0  # Clear previous position
+            self.position = new_pos
+            grid_world[self.position[0], self.position[1]] = character_value  # Place character
+            return grid_world
+
     def path_finding(self):
-        pass
+         raise NotImplementedError("Subclasses must implement path_finding()")
 
 
 
@@ -38,9 +37,7 @@ class hero(character):
         super().__init__(start_pos)
 
     def path_finding(self, position, goal, grid_world):
-       
         self.path = search_algorithms.a_star_search(position, goal, grid_world)
-        debug_print("Hero Path found", self.path)
 
 class enemy(character):
     
@@ -49,26 +46,21 @@ class enemy(character):
         self.status = 'alive'
         self.color = (255, random.randrange(0, 50), random.randrange(0,25))
         super().__init__(start_pos)
-    def move_character(self, new_pos, grid_world, character):
-        if new_pos is not None:
-            if new_pos[0] >= len(grid_world) or new_pos[1] >= len(grid_world[0]):
-                print("Invalid Move Position Exiting Game!")
-                return grid_world
-            else:
-                new_world_grid = np.copy(grid_world)
-                
-                if grid_world[new_pos] in self.boom_positions: #if the enemy is going to hit an destroyer thing like an obstacle or another enemy create a new obstacle at the current position of the enemy
-                    print("The enemy got destroyed!") 
-                    new_world_grid[self.position[0], self.position[1]] = 1
-                    return new_world_grid, 'destroyed'
-                else:
-                    new_world_grid[self.position[0], self.position[1]] = 0
-                    self.position = new_pos
-                    debug_print("Move Enemy to position", self.position)
-                    debug_print("Enemy value is ", character)
-                    new_world_grid[self.position[0], self.position[1]] = character
-                    debug_print("Enemy movement updated in grid", new_world_grid)
-                    return new_world_grid, 'alive'
+
+    def move_character(self, new_pos, grid_world, character_value):
+        if not self.valid_position(new_pos, grid_world):
+            print("Invalid Move Position! Exiting Game.")
+            return grid_world, 'alive'
+        
+        if grid_world[new_pos] in self.boom_positions:
+            print("The enemy got destroyed!") 
+            grid_world[self.position[0], self.position[1]] = 1  # Convert old position into obstacle
+            return grid_world, 'destroyed'
+            
+        grid_world[self.position[0], self.position[1]] = 0  # Clear old position
+        self.position = new_pos
+        grid_world[self.position[0], self.position[1]] = character_value  # Move enemy
+        return grid_world, 'alive'
     def path_finding(self,pose, grid_world, hero_position):
         ##remove all obstacles from the world and only leave the location of the hero
 
