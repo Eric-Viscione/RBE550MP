@@ -55,9 +55,12 @@ class generate_graph:
         return self.array
 
         
-         
-        
-        return self.array
+
+    def find_designated_spot(self, grid, value):
+        spots = list(zip(*np.where(grid == value)))
+        if not spots:
+            return None
+        return random.choice(spots)
     def choose_open_spot(self):
         open_positions = list(zip(*np.where(self.array == 0))) 
         

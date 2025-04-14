@@ -178,11 +178,11 @@ def hybrid_a_star(start, goal, grid, trailer=False, trailer_size=None):
             if (math.hypot(current.x - goal.x, current.y - goal.y) <= GOAL_TOLERANCE and
                 abs(angle_diff(current.theta, goal.theta)) <= GOAL_THETA_TOLERANCE and
                 math.hypot(current.trailer_x - goal.trailer_x, current.trailer_y - goal.trailer_y) <= TRAILER_GOAL_TOL):
-                print("Goal reached!")
+                # print("Goal reached!")
                 return current
         else:
             if math.hypot(current.x - goal.x, current.y - goal.y) <= GOAL_TOLERANCE and abs(angle_diff(current.theta, goal.theta)) <= GOAL_THETA_TOLERANCE:
-                print("Goal reached!")
+                # print("Goal reached!")
                 return current
         
         idx = current.grid_index()
@@ -394,9 +394,12 @@ def diwheel_planner(start,goal, grid, vehicle_size):
     print(f"Planned path in {elapsed_time} seconds")
     if path:
         path = reconstruct_path(path)
-        animate_path(path, grid, vehicle_size, vehicle_type="Diwheel")
+        
+        # animate_path(path, grid, vehicle_size, vehicle_type="Diwheel")
+        return path
     else:
-        visualize_path(None, grid, start, goal, vehicle_size)
+        return None
+        # visualize_path(None, grid, start, goal, vehicle_size)
 if __name__ == '__main__':
     GRID_WIDTH = 120
     GRID_HEIGHT = 120
